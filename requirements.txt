@@ -9,3 +9,4 @@ qrcode
 requests
 mysql-connector-python
 boto3
+aws_secretsmanager_caching

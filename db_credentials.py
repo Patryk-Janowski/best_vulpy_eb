@@ -3,6 +3,7 @@ import json
 from botocore.exceptions import ClientError
 import os
 import mysql.connector
+from aws_secretsmanager_caching import SecretCache, SecretCacheConfig
 
 
 def get_secret():
@@ -18,17 +19,19 @@ def get_secret():
     )
 
     try:
-        get_secret_value_response = client.get_secret_value(
-            SecretId=secret_name
-        )
-    except ClientError as e:
-        # For a list of exceptions thrown, see
-        # https://docs.aws.amazon.com/secretsmanager/latest/apireference/API_GetSecretValue.html
-        raise e
+        # Create a cache
+        cache = SecretCache(SecretCacheConfig(),client)
 
-    # Decrypts secret using the associated KMS key.
-    secret_string = get_secret_value_response['SecretString']
-    return json.loads(secret_string)
+        # Get secret string from the cache
+        get_secret_value_response = cache.get_secret_string(secret_name)
+
+    except ClientError as e:
+        if e.response['Error']['Code'] == 'DecryptionFailureException':
+            # Deal with the exception here, and/or rethrow at your discretion.
+            raise e
+    else:
+        secret = get_secret_value_response
+        return json.loads(secret)
 
 
 def get_db_credentials(database: str):
@@ -46,3 +49,10 @@ def get_db_credentials(database: str):
 def get_db_connection(db_config):
     conn = mysql.connector.connect(**db_config)
     return conn
+
+
+
+
+
+if __name__ == '__main__':
+    get_secret() 
